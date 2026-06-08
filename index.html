@@ -681,54 +681,118 @@ function uploadInventory() {
   //   XLSX.writeFile(workbook, 'rekap_opname_pdt.xlsx');
   // }
 
-  function downloadRekap() {
+//   function downloadRekap() {
+
+//     if (opname.length === 0) {
+//         alert('Belum ada data opname.');
+//         return;
+//     }
+
+//     const dataExport = opname.map(item => ({
+//         'Nama Obat': item.nama_obat,
+//         'Qty Sistem': item.qty_sistem,
+//         'Qty Fisik': item.qty_fisik,
+//         'Selisih': item.selisih,
+//         'Keterangan ED': item.keterangan_ed,
+//         'Keterangan Biasa': item.keterangan_biasa,
+//         'Lokasi': item.lokasi
+//     }));
+
+//     const worksheet = XLSX.utils.json_to_sheet(dataExport);
+//     const workbook = XLSX.utils.book_new();
+
+//     XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap Opname');
+
+//     // Buat file sebagai array
+//     const excelBuffer = XLSX.write(workbook, {
+//         bookType: 'xlsx',
+//         type: 'array'
+//     });
+
+//     const blob = new Blob(
+//         [excelBuffer],
+//         {
+//             type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+//         }
+//     );
+
+//     const url = URL.createObjectURL(blob);
+
+//     const a = document.createElement('a');
+//     a.href = url;
+//     a.download = 'rekap_opname_pdt.xlsx';
+
+//     document.body.appendChild(a);
+//     a.click();
+
+//     setTimeout(() => {
+//         document.body.removeChild(a);
+//         URL.revokeObjectURL(url);
+//     }, 100);
+// }
+
+function downloadRekap() {
 
     if (opname.length === 0) {
         alert('Belum ada data opname.');
         return;
     }
 
-    const dataExport = opname.map(item => ({
-        'Nama Obat': item.nama_obat,
-        'Qty Sistem': item.qty_sistem,
-        'Qty Fisik': item.qty_fisik,
-        'Selisih': item.selisih,
-        'Keterangan ED': item.keterangan_ed,
-        'Keterangan Biasa': item.keterangan_biasa,
-        'Lokasi': item.lokasi
-    }));
+    const { jsPDF } = window.jspdf;
 
-    const worksheet = XLSX.utils.json_to_sheet(dataExport);
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap Opname');
-
-    // Buat file sebagai array
-    const excelBuffer = XLSX.write(workbook, {
-        bookType: 'xlsx',
-        type: 'array'
-    });
-
-    const blob = new Blob(
-        [excelBuffer],
-        {
-            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        }
+    const doc = new jsPDF(
+        'landscape',
+        'mm',
+        'a4'
     );
 
-    const url = URL.createObjectURL(blob);
+    doc.setFontSize(16);
+    doc.text('REKAP STOCK OPNAME', 14, 15);
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'rekap_opname_pdt.xlsx';
+    doc.setFontSize(10);
+    doc.text(
+        'Tanggal : ' + new Date().toLocaleString('id-ID'),
+        14,
+        22
+    );
 
-    document.body.appendChild(a);
-    a.click();
+    const rows = opname.map((item, index) => [
+        index + 1,
+        item.nama_obat,
+        item.qty_sistem,
+        item.qty_fisik,
+        item.selisih,
+        item.keterangan_ed || '-',
+        item.keterangan_biasa || '-',
+        item.lokasi || '-'
+    ]);
 
-    setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, 100);
+    doc.autoTable({
+        startY: 28,
+        head: [[
+            'No',
+            'Nama Obat',
+            'Qty Sistem',
+            'Qty Fisik',
+            'Selisih',
+            'Ket. ED',
+            'Ket. Biasa',
+            'Lokasi'
+        ]],
+        body: rows,
+        styles: {
+            fontSize: 8
+        },
+        headStyles: {
+            fillColor: [41, 128, 185]
+        }
+    });
+
+    doc.save(
+        'rekap_opname_' +
+        new Date().getTime() +
+        '.pdf'
+    );
 }
 
   function hapusSemua() {
