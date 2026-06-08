@@ -658,28 +658,78 @@ function uploadInventory() {
     });
   }
 
+  // function downloadRekap() {
+  //   if (opname.length === 0) {
+  //     alert('Belum ada data opname.');
+  //     return;
+  //   }
+
+  //   const dataExport = opname.map(item => ({
+  //     'Nama Obat': item.nama_obat,
+  //     'Qty Sistem': item.qty_sistem,
+  //     'Qty Fisik': item.qty_fisik,
+  //     'Selisih': item.selisih,
+  //     'Keterangan ED': item.keterangan_ed,
+  //     'Keterangan Biasa': item.keterangan_biasa,
+  //     'Lokasi': item.lokasi
+  //   }));
+
+  //   const worksheet = XLSX.utils.json_to_sheet(dataExport);
+  //   const workbook = XLSX.utils.book_new();
+
+  //   XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap Opname');
+  //   XLSX.writeFile(workbook, 'rekap_opname_pdt.xlsx');
+  // }
+
   function downloadRekap() {
+
     if (opname.length === 0) {
-      alert('Belum ada data opname.');
-      return;
+        alert('Belum ada data opname.');
+        return;
     }
 
     const dataExport = opname.map(item => ({
-      'Nama Obat': item.nama_obat,
-      'Qty Sistem': item.qty_sistem,
-      'Qty Fisik': item.qty_fisik,
-      'Selisih': item.selisih,
-      'Keterangan ED': item.keterangan_ed,
-      'Keterangan Biasa': item.keterangan_biasa,
-      'Lokasi': item.lokasi
+        'Nama Obat': item.nama_obat,
+        'Qty Sistem': item.qty_sistem,
+        'Qty Fisik': item.qty_fisik,
+        'Selisih': item.selisih,
+        'Keterangan ED': item.keterangan_ed,
+        'Keterangan Biasa': item.keterangan_biasa,
+        'Lokasi': item.lokasi
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataExport);
     const workbook = XLSX.utils.book_new();
 
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap Opname');
-    XLSX.writeFile(workbook, 'rekap_opname_pdt.xlsx');
-  }
+
+    // Buat file sebagai array
+    const excelBuffer = XLSX.write(workbook, {
+        bookType: 'xlsx',
+        type: 'array'
+    });
+
+    const blob = new Blob(
+        [excelBuffer],
+        {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'rekap_opname_pdt.xlsx';
+
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
+}
 
   function hapusSemua() {
     if (!confirm('Yakin hapus semua data inventory dan opname?')) return;
