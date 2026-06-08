@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tools Opname PDT</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7fb;
+      color: #1f2937;
+    }
+
+    .app {
+      max-width: 1100px;
+      margin: auto;
+      padding: 16px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2563eb, #0f172a);
+      color: #fff;
+      padding: 22px;
+      border-radius: 18px;
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .header p {
+      margin: 8px 0 0;
+      opacity: .9;
+    }
+
+    .card {
+      background: #fff;
+      padding: 18px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+      margin-bottom: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #475569;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #dbe3ef;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
+    button {
+      border: none;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-green {
+      background: #16a34a;
+    }
+
+    .btn-green:hover {
+      background: #15803d;
+    }
+
+    .btn-red {
+      background: #dc2626;
+    }
+
+    .btn-red:hover {
+      background: #b91c1c;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .scan-input {
+      font-size: 22px;
+      font-weight: bold;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    .info {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .info-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .info-box span {
+      display: block;
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 5px;
+    }
+
+    .info-box strong {
+      font-size: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 9px;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+    }
+
+    .danger-text {
+      color: #dc2626;
+      font-weight: bold;
+    }
+
+    .success-text {
+      color: #16a34a;
+      font-weight: bold;
+    }
+
+    @media(max-width: 768px) {
+      .grid, .info {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <h1>Tools Opname PDT</h1>
+    <p>Upload global inventory Pharmapp, scan barcode PDT, input qty fisik, lalu download rekap opname.</p>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>1. Upload Global Inventory</h3>
+      <div class="badge">Format Pharmapp</div>
+
+      <p>
+        Kolom yang digunakan:
+        <b>Nama Barang</b>, <b>Barcode</b>, <b>Qty</b>, <b>Lokasi</b>
+      </p>
+
+      <input type="file" id="fileInventory" accept=".xlsx,.xls">
+      <br><br>
+      <button onclick="uploadInventory()">Upload Inventory</button>
+    </div>
+
+    <div class="card">
+      <h3>2. Scan Barcode PDT</h3>
+
+      <label>Scan / Input Barcode</label>
+      <input
+        type="text"
+        id="barcodeInput"
+        class="scan-input"
+        placeholder="Scan barcode di sini..."
+        autocomplete="off"
+        autofocus
+      >
+
+      <br><br>
+      <button onclick="cariBarcode()">Cari Obat</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="detailCard">
+    <h3>Detail Obat</h3>
+
+    <div class="info">
+      <div class="info-box">
+        <span>Barcode</span>
+        <strong id="dBarcode">-</strong>
+      </div>
+
+      <div class="info-box">
+        <span>Nama Obat</span>
+        <strong id="dNama">-</strong>
+      </div>
+
+      <div class="info-box">
+        <span>Qty Sistem</span>
+        <strong id="dQtySistem">0</strong>
+      </div>
+
+      <div class="info-box">
+        <span>Lokasi</span>
+        <strong id="dLokasi">-</strong>
+      </div>
+
+      <div class="info-box">
+        <span>Satuan</span>
+        <strong id="dSatuan">-</strong>
+      </div>
+
+      <div class="info-box">
+        <span>Kategori</span>
+        <strong id="dKategori">-</strong>
+      </div>
+
+      <div class="info-box">
+        <span>Batch No</span>
+        <strong id="dBatch">-</strong>
+      </div>
+
+      <div class="info-box">
+        <span>Exp Date</span>
+        <strong id="dExp">-</strong>
+      </div>
+    </div>
+
+    <br>
+
+    <div class="grid">
+      <div>
+        <label>Qty Fisik</label>
+        <input type="number" id="qtyFisik" placeholder="Masukkan qty fisik" oninput="hitungSelisih()">
+      </div>
+
+      <div>
+        <label>Selisih</label>
+        <input type="number" id="selisih" readonly>
+      </div>
+
+      <div>
+        <label>Keterangan ED</label>
+        <textarea id="ketEd" placeholder="Contoh: ED dekat, ED 06/2026 qty 2"></textarea>
+      </div>
+
+      <div>
+        <label>Keterangan Biasa</label>
+        <textarea id="ketBiasa" placeholder="Contoh: rusak, beda rak, kosong, dll"></textarea>
+      </div>
+    </div>
+
+    <br>
+
+    <button class="btn-green" onclick="simpanOpname()">Simpan Opname</button>
+  </div>
+
+  <div class="card">
+    <h3>3. Rekap Opname</h3>
+
+    <div class="grid">
+      <button class="btn-green" onclick="downloadRekap()">Download Rekap Excel</button>
+      <button class="btn-red" onclick="hapusSemua()">Hapus Semua Data</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Nama Obat</th>
+          <th>Qty Sistem</th>
+          <th>Qty Fisik</th>
+          <th>Selisih</th>
+          <th>Keterangan ED</th>
+          <th>Keterangan Biasa</th>
+          <th>Lokasi</th>
+        </tr>
+      </thead>
+      <tbody id="rekapTable">
+        <tr>
+          <td colspan="8" align="center">Belum ada data opname.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  let inventory = JSON.parse(localStorage.getItem('inventory_opname')) || {};
+  let opname = JSON.parse(localStorage.getItem('rekap_opname')) || [];
+  let selectedItem = null;
+
+  const barcodeInput = document.getElementById('barcodeInput');
+
+  setInterval(() => {
+    // Jangan paksa fokus ke scan saat user sedang input qty/keterangan
+    const detailSedangTerbuka = !document.getElementById('detailCard').classList.contains('hidden');
+    if (!detailSedangTerbuka && document.activeElement !== document.getElementById('fileInventory')) {
+      barcodeInput.focus();
+    }
+  }, 1000);
+
+  barcodeInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      cariBarcode();
+    }
+  });
+
+  document.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'qtyFisik') {
+      simpanOpname();
+    }
+  });
+
+function cleanHeader(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+}
+
+function findHeaderIndex(headerRow, target) {
+    return headerRow.findIndex(col => cleanHeader(col) === cleanHeader(target));
+}
+
+function addUniqueText(oldValue, newValue) {
+    const oldText = String(oldValue || '').trim();
+    const newText = String(newValue || '').trim();
+
+    if (!newText) return oldText;
+    if (!oldText) return newText;
+
+    const parts = oldText.split(' | ').map(x => x.trim());
+    if (!parts.includes(newText)) {
+        parts.push(newText);
+    }
+
+    return parts.join(' | ');
+}
+
+function uploadInventory() {
+
+    const file = document.getElementById('fileInventory').files[0];
+
+    if (!file) {
+        alert('Pilih file inventory terlebih dahulu');
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+
+        const data = new Uint8Array(e.target.result);
+
+        const workbook = XLSX.read(data, {
+            type: 'array'
+        });
+
+        // SHEET PERTAMA SAJA, sesuai format Pharmapp: Inventory
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        const rows = XLSX.utils.sheet_to_json(
+            worksheet,
+            {
+                header: 1,
+                defval: ''
+            }
+        );
+
+        inventory = {};
+
+        // Cari header otomatis, karena export Pharmapp biasanya header ada di baris 4
+        let headerRowIndex = -1;
+        let headerRow = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const rowClean = rows[i].map(cleanHeader);
+            if (rowClean.includes('nama barang') && rowClean.includes('barcode') && rowClean.includes('qty')) {
+                headerRowIndex = i;
+                headerRow = rows[i];
+                break;
+            }
+        }
+
+        if (headerRowIndex === -1) {
+            alert('Header tidak ditemukan. Pastikan sheet pertama memiliki kolom Nama Barang, Barcode, dan Qty.');
+            return;
+        }
+
+        const barcodeIndex = findHeaderIndex(headerRow, 'Barcode');
+        const namaIndex    = findHeaderIndex(headerRow, 'Nama Barang');
+        const qtyIndex     = findHeaderIndex(headerRow, 'Qty');
+        const lokasiIndex  = findHeaderIndex(headerRow, 'Lokasi');
+        const satuanIndex  = findHeaderIndex(headerRow, 'Satuan');
+        const kategoriIndex = findHeaderIndex(headerRow, 'Kategori');
+        const batchIndex   = findHeaderIndex(headerRow, 'Batch No');
+        const expIndex     = findHeaderIndex(headerRow, 'Exp Date');
+
+        let totalBarisBarang = 0;
+        let totalBarcodeKosong = 0;
+        let totalDuplicateBarcode = 0;
+
+        for (let i = headerRowIndex + 1; i < rows.length; i++) {
+
+            const row = rows[i];
+
+            const namaBarang = String(row[namaIndex] || '').trim();
+            const barcode = String(row[barcodeIndex] || '').trim();
+
+            if (!namaBarang) continue;
+
+            totalBarisBarang++;
+
+            if (!barcode) {
+                totalBarcodeKosong++;
+                continue;
+            }
+
+            const qty = Number(row[qtyIndex]) || 0;
+
+            // Jika barcode sama muncul beberapa kali, jangan ditimpa.
+            // Qty sistem dijumlahkan, lokasi/batch/ED digabung agar tetap bisa discan 1 barcode.
+            if (inventory[barcode]) {
+                totalDuplicateBarcode++;
+                inventory[barcode].qty_sistem += qty;
+                inventory[barcode].lokasi = addUniqueText(inventory[barcode].lokasi, lokasiIndex >= 0 ? row[lokasiIndex] : '');
+                inventory[barcode].batch_no = addUniqueText(inventory[barcode].batch_no, batchIndex >= 0 ? row[batchIndex] : '');
+                inventory[barcode].exp_date = addUniqueText(inventory[barcode].exp_date, expIndex >= 0 ? row[expIndex] : '');
+                inventory[barcode].jumlah_baris += 1;
+            } else {
+                inventory[barcode] = {
+                    barcode: barcode,
+                    nama_obat: namaBarang,
+                    qty_sistem: qty,
+                    lokasi: lokasiIndex >= 0 ? row[lokasiIndex] : '',
+                    satuan: satuanIndex >= 0 ? row[satuanIndex] : '',
+                    kategori: kategoriIndex >= 0 ? row[kategoriIndex] : '',
+                    batch_no: batchIndex >= 0 ? row[batchIndex] : '',
+                    exp_date: expIndex >= 0 ? row[expIndex] : '',
+                    jumlah_baris: 1
+                };
+            }
+        }
+
+        localStorage.setItem(
+            'inventory_opname',
+            JSON.stringify(inventory)
+        );
+
+        alert(
+            'Inventory berhasil diupload.\n\n' +
+            'Sheet dibaca: ' + sheetName + '\n' +
+            'Total baris barang Excel: ' + totalBarisBarang + '\n' +
+            'Barcode unik masuk sistem: ' + Object.keys(inventory).length + '\n' +
+            'Barcode duplicate digabung: ' + totalDuplicateBarcode + '\n' +
+            'Barcode kosong dilewati: ' + totalBarcodeKosong
+        );
+
+        barcodeInput.focus();
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+  function cariBarcode() {
+    const barcode = barcodeInput.value.trim();
+
+    if (!barcode) {
+      alert('Scan atau isi barcode dulu.');
+      return;
+    }
+
+    const item = inventory[barcode];
+
+    if (!item) {
+      alert('Barcode tidak ditemukan di global inventory: ' + barcode);
+      barcodeInput.value = '';
+      barcodeInput.focus();
+      return;
+    }
+
+    selectedItem = item;
+
+    document.getElementById('detailCard').classList.remove('hidden');
+
+    document.getElementById('dBarcode').innerText = item.barcode;
+    document.getElementById('dNama').innerText = item.nama_obat || '-';
+    document.getElementById('dQtySistem').innerText = item.qty_sistem;
+    document.getElementById('dLokasi').innerText = item.lokasi || '-';
+    document.getElementById('dSatuan').innerText = item.satuan || '-';
+    document.getElementById('dKategori').innerText = item.kategori || '-';
+    document.getElementById('dBatch').innerText = item.batch_no || '-';
+    document.getElementById('dExp').innerText = item.exp_date || '-';
+
+    document.getElementById('qtyFisik').value = '';
+    document.getElementById('selisih').value = '';
+    document.getElementById('ketEd').value = '';
+    document.getElementById('ketBiasa').value = '';
+
+    setTimeout(() => {
+      document.getElementById('qtyFisik').focus();
+    }, 200);
+  }
+
+  function hitungSelisih() {
+    if (!selectedItem) return;
+
+    const qtyFisik = parseFloat(document.getElementById('qtyFisik').value) || 0;
+    const qtySistem = parseFloat(selectedItem.qty_sistem) || 0;
+
+    document.getElementById('selisih').value = qtyFisik - qtySistem;
+  }
+
+  function simpanOpname() {
+    if (!selectedItem) {
+      alert('Belum ada obat yang dipilih.');
+      return;
+    }
+
+    const qtyFisik = parseFloat(document.getElementById('qtyFisik').value);
+
+    if (isNaN(qtyFisik)) {
+      alert('Qty fisik wajib diisi.');
+      document.getElementById('qtyFisik').focus();
+      return;
+    }
+
+    const data = {
+      barcode: selectedItem.barcode,
+      nama_obat: selectedItem.nama_obat,
+      qty_sistem: selectedItem.qty_sistem,
+      qty_fisik: qtyFisik,
+      selisih: qtyFisik - selectedItem.qty_sistem,
+      keterangan_ed: document.getElementById('ketEd').value,
+      keterangan_biasa: document.getElementById('ketBiasa').value,
+      lokasi: selectedItem.lokasi || ''
+    };
+
+    const index = opname.findIndex(item => item.barcode === data.barcode);
+
+    if (index >= 0) {
+      if (!confirm('Barang ini sudah pernah discan. Update data sebelumnya?')) {
+        return;
+      }
+
+      opname[index] = data;
+    } else {
+      opname.push(data);
+    }
+
+    localStorage.setItem('rekap_opname', JSON.stringify(opname));
+
+    renderRekap();
+
+    selectedItem = null;
+    document.getElementById('detailCard').classList.add('hidden');
+
+    barcodeInput.value = '';
+    barcodeInput.focus();
+
+    alert('Data opname berhasil disimpan.');
+  }
+
+  function renderRekap() {
+    const tbody = document.getElementById('rekapTable');
+
+    if (opname.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" align="center">Belum ada data opname.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = '';
+
+    opname.forEach((item, index) => {
+      const selisihClass =
+        item.selisih < 0 ? 'danger-text' :
+        item.selisih > 0 ? 'success-text' : '';
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${item.nama_obat}</td>
+          <td>${item.qty_sistem}</td>
+          <td>${item.qty_fisik}</td>
+          <td class="${selisihClass}">${item.selisih}</td>
+          <td>${item.keterangan_ed || '-'}</td>
+          <td>${item.keterangan_biasa || '-'}</td>
+          <td>${item.lokasi || '-'}</td>
+        </tr>
+      `;
+    });
+  }
+
+  function downloadRekap() {
+    if (opname.length === 0) {
+      alert('Belum ada data opname.');
+      return;
+    }
+
+    const dataExport = opname.map(item => ({
+      'Nama Obat': item.nama_obat,
+      'Qty Sistem': item.qty_sistem,
+      'Qty Fisik': item.qty_fisik,
+      'Selisih': item.selisih,
+      'Keterangan ED': item.keterangan_ed,
+      'Keterangan Biasa': item.keterangan_biasa,
+      'Lokasi': item.lokasi
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataExport);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap Opname');
+    XLSX.writeFile(workbook, 'rekap_opname_pdt.xlsx');
+  }
+
+  function hapusSemua() {
+    if (!confirm('Yakin hapus semua data inventory dan opname?')) return;
+
+    localStorage.removeItem('inventory_opname');
+    localStorage.removeItem('rekap_opname');
+
+    inventory = {};
+    opname = [];
+    selectedItem = null;
+
+    document.getElementById('detailCard').classList.add('hidden');
+    renderRekap();
+
+    alert('Semua data berhasil dihapus.');
+  }
+
+  renderRekap();
+</script>
+
+</body>
+</html>
