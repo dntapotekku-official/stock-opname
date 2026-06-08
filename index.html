@@ -6,11 +6,11 @@
   <title>Tools Opname PDT</title>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -92,29 +92,15 @@
       cursor: pointer;
     }
 
-    button:hover {
-      background: #1d4ed8;
-    }
+    button:hover { background: #1d4ed8; }
 
-    .btn-green {
-      background: #16a34a;
-    }
+    .btn-green { background: #16a34a; }
+    .btn-green:hover { background: #15803d; }
 
-    .btn-green:hover {
-      background: #15803d;
-    }
+    .btn-red { background: #dc2626; }
+    .btn-red:hover { background: #b91c1c; }
 
-    .btn-red {
-      background: #dc2626;
-    }
-
-    .btn-red:hover {
-      background: #b91c1c;
-    }
-
-    .hidden {
-      display: none;
-    }
+    .hidden { display: none; }
 
     .badge {
       display: inline-block;
@@ -155,8 +141,36 @@
       margin-bottom: 5px;
     }
 
-    .info-box strong {
-      font-size: 15px;
+    .info-box strong { font-size: 15px; }
+
+    .progress-box {
+      margin-top: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 12px;
+      border-radius: 12px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 16px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 16px;
+      background: #2563eb;
+      transition: width .2s ease;
+    }
+
+    .progress-text {
+      font-size: 13px;
+      color: #475569;
+      font-weight: bold;
     }
 
     table {
@@ -188,13 +202,8 @@
     }
 
     @media(max-width: 768px) {
-      .grid, .info {
-        grid-template-columns: 1fr;
-      }
-
-      table {
-        font-size: 12px;
-      }
+      .grid, .info { grid-template-columns: 1fr; }
+      table { font-size: 12px; }
     }
   </style>
 </head>
@@ -205,7 +214,7 @@
 
   <div class="header">
     <h1>Tools Opname PDT</h1>
-    <p>Upload global inventory Pharmapp, scan barcode PDT, input qty fisik, lalu download rekap opname.</p>
+    <p>Upload global inventory Pharmapp, scan barcode PDT, input qty fisik, lalu download rekap opname PDF.</p>
   </div>
 
   <div class="grid">
@@ -215,11 +224,19 @@
 
       <p>
         Kolom yang digunakan:
-        <b>Nama Barang</b>, <b>Barcode</b>, <b>Qty</b>, <b>Lokasi</b>
+        <b>Nama Barang</b>, <b>Satuan</b>, <b>Barcode</b>, <b>Qty</b>, <b>Lokasi</b>, <b>Exp Date</b>
       </p>
 
-      <input type="file" id="fileInventory" multiple>
-      <br><br>
+      <input type="file" id="fileInventory" accept=".xlsx,.xls">
+
+      <div id="uploadProgressBox" class="progress-box hidden">
+        <div class="progress-track">
+          <div id="uploadProgressBar" class="progress-bar"></div>
+        </div>
+        <div id="uploadProgressText" class="progress-text">Menunggu upload...</div>
+      </div>
+
+      <br>
       <button onclick="uploadInventory()">Upload Inventory</button>
     </div>
 
@@ -271,16 +288,6 @@
       </div>
 
       <div class="info-box">
-        <span>Kategori</span>
-        <strong id="dKategori">-</strong>
-      </div>
-
-      <div class="info-box">
-        <span>Batch No</span>
-        <strong id="dBatch">-</strong>
-      </div>
-
-      <div class="info-box">
         <span>Exp Date</span>
         <strong id="dExp">-</strong>
       </div>
@@ -319,7 +326,7 @@
     <h3>3. Rekap Opname</h3>
 
     <div class="grid">
-      <button class="btn-green" onclick="downloadRekap()">Download Rekap Excel</button>
+      <button class="btn-green" onclick="downloadRekap()">Download Rekap PDF</button>
       <button class="btn-red" onclick="hapusSemua()">Hapus Semua Data</button>
     </div>
 
@@ -354,7 +361,6 @@
   const barcodeInput = document.getElementById('barcodeInput');
 
   setInterval(() => {
-    // Jangan paksa fokus ke scan saat user sedang input qty/keterangan
     const detailSedangTerbuka = !document.getElementById('detailCard').classList.contains('hidden');
     if (!detailSedangTerbuka && document.activeElement !== document.getElementById('fileInventory')) {
       barcodeInput.focus();
@@ -373,18 +379,28 @@
     }
   });
 
-function cleanHeader(value) {
+  function setProgress(percent, text) {
+    const box = document.getElementById('uploadProgressBox');
+    const bar = document.getElementById('uploadProgressBar');
+    const label = document.getElementById('uploadProgressText');
+
+    box.classList.remove('hidden');
+    bar.style.width = percent + '%';
+    label.innerText = text || ('Memproses ' + percent + '%');
+  }
+
+  function cleanHeader(value) {
     return String(value || '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, ' ');
-}
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
 
-function findHeaderIndex(headerRow, target) {
+  function findHeaderIndex(headerRow, target) {
     return headerRow.findIndex(col => cleanHeader(col) === cleanHeader(target));
-}
+  }
 
-function addUniqueText(oldValue, newValue) {
+  function addUniqueText(oldValue, newValue) {
     const oldText = String(oldValue || '').trim();
     const newText = String(newValue || '').trim();
 
@@ -393,61 +409,90 @@ function addUniqueText(oldValue, newValue) {
 
     const parts = oldText.split(' | ').map(x => x.trim());
     if (!parts.includes(newText)) {
-        parts.push(newText);
+      parts.push(newText);
     }
 
     return parts.join(' | ');
-}
+  }
 
-function uploadInventory() {
+  function excelDateToText(value) {
+    if (!value) return '';
 
+    if (typeof value === 'number') {
+      const date = XLSX.SSF.parse_date_code(value);
+      if (!date) return value;
+
+      const d = String(date.d).padStart(2, '0');
+      const m = String(date.m).padStart(2, '0');
+      const y = date.y;
+
+      return d + '-' + m + '-' + y;
+    }
+
+    return String(value);
+  }
+
+  function uploadInventory() {
     const file = document.getElementById('fileInventory').files[0];
 
     if (!file) {
-        alert('Pilih file inventory terlebih dahulu');
-        return;
+      alert('Pilih file inventory terlebih dahulu');
+      return;
     }
+
+    setProgress(2, 'Membaca file Excel...');
 
     const reader = new FileReader();
 
-    reader.onload = function(e) {
+    reader.onprogress = function(e) {
+      if (e.lengthComputable) {
+        const percent = Math.min(20, Math.round((e.loaded / e.total) * 20));
+        setProgress(percent, 'Membaca file ' + percent + '%');
+      }
+    };
 
+    reader.onload = function(e) {
+      setProgress(25, 'Membuka workbook...');
+
+      setTimeout(() => {
         const data = new Uint8Array(e.target.result);
 
         const workbook = XLSX.read(data, {
-            type: 'array'
+          type: 'array'
         });
 
-        // SHEET PERTAMA SAJA, sesuai format Pharmapp: Inventory
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
+        setProgress(35, 'Membaca sheet: ' + sheetName);
+
         const rows = XLSX.utils.sheet_to_json(
-            worksheet,
-            {
-                header: 1,
-                defval: ''
-            }
+          worksheet,
+          {
+            header: 1,
+            defval: ''
+          }
         );
 
         inventory = {};
 
-        // Cari header otomatis, karena export Pharmapp biasanya header ada di baris 4
         let headerRowIndex = -1;
         let headerRow = [];
 
         for (let i = 0; i < rows.length; i++) {
-            const rowClean = rows[i].map(cleanHeader);
-            if (rowClean.includes('nama barang') && rowClean.includes('barcode') && rowClean.includes('qty')) {
-                headerRowIndex = i;
-                headerRow = rows[i];
-                break;
-            }
+          const rowClean = rows[i].map(cleanHeader);
+
+          if (rowClean.includes('nama barang') && rowClean.includes('barcode') && rowClean.includes('qty')) {
+            headerRowIndex = i;
+            headerRow = rows[i];
+            break;
+          }
         }
 
         if (headerRowIndex === -1) {
-            alert('Header tidak ditemukan. Pastikan sheet pertama memiliki kolom Nama Barang, Barcode, dan Qty.');
-            return;
+          setProgress(0, 'Gagal: header tidak ditemukan');
+          alert('Header tidak ditemukan. Pastikan sheet pertama memiliki kolom Nama Barang, Barcode, dan Qty.');
+          return;
         }
 
         const barcodeIndex = findHeaderIndex(headerRow, 'Barcode');
@@ -455,75 +500,82 @@ function uploadInventory() {
         const qtyIndex     = findHeaderIndex(headerRow, 'Qty');
         const lokasiIndex  = findHeaderIndex(headerRow, 'Lokasi');
         const satuanIndex  = findHeaderIndex(headerRow, 'Satuan');
-        const kategoriIndex = findHeaderIndex(headerRow, 'Kategori');
-        const batchIndex   = findHeaderIndex(headerRow, 'Batch No');
         const expIndex     = findHeaderIndex(headerRow, 'Exp Date');
 
         let totalBarisBarang = 0;
         let totalBarcodeKosong = 0;
         let totalDuplicateBarcode = 0;
 
-        for (let i = headerRowIndex + 1; i < rows.length; i++) {
+        const startRow = headerRowIndex + 1;
+        const totalRows = rows.length - startRow;
 
-            const row = rows[i];
+        for (let i = startRow; i < rows.length; i++) {
+          const row = rows[i];
 
-            const namaBarang = String(row[namaIndex] || '').trim();
-            const barcode = String(row[barcodeIndex] || '').trim();
+          if ((i - startRow) % 100 === 0) {
+            const progress = 35 + Math.round(((i - startRow) / totalRows) * 55);
+            setProgress(Math.min(progress, 90), 'Memproses data ' + (i - startRow) + ' / ' + totalRows);
+          }
 
-            if (!namaBarang) continue;
+          const namaBarang = String(row[namaIndex] || '').trim();
+          const barcode = String(row[barcodeIndex] || '').trim();
 
-            totalBarisBarang++;
+          if (!namaBarang) continue;
 
-            if (!barcode) {
-                totalBarcodeKosong++;
-                continue;
-            }
+          totalBarisBarang++;
 
-            const qty = Number(row[qtyIndex]) || 0;
+          if (!barcode) {
+            totalBarcodeKosong++;
+            continue;
+          }
 
-            // Jika barcode sama muncul beberapa kali, jangan ditimpa.
-            // Qty sistem dijumlahkan, lokasi/batch/ED digabung agar tetap bisa discan 1 barcode.
-            if (inventory[barcode]) {
-                totalDuplicateBarcode++;
-                inventory[barcode].qty_sistem += qty;
-                inventory[barcode].lokasi = addUniqueText(inventory[barcode].lokasi, lokasiIndex >= 0 ? row[lokasiIndex] : '');
-                inventory[barcode].batch_no = addUniqueText(inventory[barcode].batch_no, batchIndex >= 0 ? row[batchIndex] : '');
-                inventory[barcode].exp_date = addUniqueText(inventory[barcode].exp_date, expIndex >= 0 ? row[expIndex] : '');
-                inventory[barcode].jumlah_baris += 1;
-            } else {
-                inventory[barcode] = {
-                    barcode: barcode,
-                    nama_obat: namaBarang,
-                    qty_sistem: qty,
-                    lokasi: lokasiIndex >= 0 ? row[lokasiIndex] : '',
-                    satuan: satuanIndex >= 0 ? row[satuanIndex] : '',
-                    kategori: kategoriIndex >= 0 ? row[kategoriIndex] : '',
-                    batch_no: batchIndex >= 0 ? row[batchIndex] : '',
-                    exp_date: expIndex >= 0 ? row[expIndex] : '',
-                    jumlah_baris: 1
-                };
-            }
+          const qty = Number(row[qtyIndex]) || 0;
+          const lokasi = lokasiIndex >= 0 ? row[lokasiIndex] : '';
+          const satuan = satuanIndex >= 0 ? row[satuanIndex] : '';
+          const expDate = expIndex >= 0 ? excelDateToText(row[expIndex]) : '';
+
+          if (inventory[barcode]) {
+            totalDuplicateBarcode++;
+            inventory[barcode].qty_sistem += qty;
+            inventory[barcode].lokasi = addUniqueText(inventory[barcode].lokasi, lokasi);
+            inventory[barcode].satuan = addUniqueText(inventory[barcode].satuan, satuan);
+            inventory[barcode].exp_date = addUniqueText(inventory[barcode].exp_date, expDate);
+            inventory[barcode].jumlah_baris += 1;
+          } else {
+            inventory[barcode] = {
+              barcode: barcode,
+              nama_obat: namaBarang,
+              satuan: satuan,
+              qty_sistem: qty,
+              lokasi: lokasi,
+              exp_date: expDate,
+              jumlah_baris: 1
+            };
+          }
         }
 
-        localStorage.setItem(
-            'inventory_opname',
-            JSON.stringify(inventory)
-        );
+        setProgress(95, 'Menyimpan ke browser...');
+
+        localStorage.setItem('inventory_opname', JSON.stringify(inventory));
+
+        setProgress(100, 'Upload selesai 100%');
 
         alert(
-            'Inventory berhasil diupload.\n\n' +
-            'Sheet dibaca: ' + sheetName + '\n' +
-            'Total baris barang Excel: ' + totalBarisBarang + '\n' +
-            'Barcode unik masuk sistem: ' + Object.keys(inventory).length + '\n' +
-            'Barcode duplicate digabung: ' + totalDuplicateBarcode + '\n' +
-            'Barcode kosong dilewati: ' + totalBarcodeKosong
+          'Inventory berhasil diupload.\n\n' +
+          'Sheet dibaca: ' + sheetName + '\n' +
+          'Total baris barang Excel: ' + totalBarisBarang + '\n' +
+          'Barcode unik masuk sistem: ' + Object.keys(inventory).length + '\n' +
+          'Barcode duplicate digabung: ' + totalDuplicateBarcode + '\n' +
+          'Barcode kosong dilewati: ' + totalBarcodeKosong
         );
 
         barcodeInput.focus();
+
+      }, 150);
     };
 
     reader.readAsArrayBuffer(file);
-}
+  }
 
   function cariBarcode() {
     const barcode = barcodeInput.value.trim();
@@ -551,8 +603,6 @@ function uploadInventory() {
     document.getElementById('dQtySistem').innerText = item.qty_sistem;
     document.getElementById('dLokasi').innerText = item.lokasi || '-';
     document.getElementById('dSatuan').innerText = item.satuan || '-';
-    document.getElementById('dKategori').innerText = item.kategori || '-';
-    document.getElementById('dBatch').innerText = item.batch_no || '-';
     document.getElementById('dExp').innerText = item.exp_date || '-';
 
     document.getElementById('qtyFisik').value = '';
@@ -591,6 +641,8 @@ function uploadInventory() {
     const data = {
       barcode: selectedItem.barcode,
       nama_obat: selectedItem.nama_obat,
+      satuan: selectedItem.satuan || '',
+      exp_date: selectedItem.exp_date || '',
       qty_sistem: selectedItem.qty_sistem,
       qty_fisik: qtyFisik,
       selisih: qtyFisik - selectedItem.qty_sistem,
@@ -658,142 +710,57 @@ function uploadInventory() {
     });
   }
 
-  // function downloadRekap() {
-  //   if (opname.length === 0) {
-  //     alert('Belum ada data opname.');
-  //     return;
-  //   }
-
-  //   const dataExport = opname.map(item => ({
-  //     'Nama Obat': item.nama_obat,
-  //     'Qty Sistem': item.qty_sistem,
-  //     'Qty Fisik': item.qty_fisik,
-  //     'Selisih': item.selisih,
-  //     'Keterangan ED': item.keterangan_ed,
-  //     'Keterangan Biasa': item.keterangan_biasa,
-  //     'Lokasi': item.lokasi
-  //   }));
-
-  //   const worksheet = XLSX.utils.json_to_sheet(dataExport);
-  //   const workbook = XLSX.utils.book_new();
-
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap Opname');
-  //   XLSX.writeFile(workbook, 'rekap_opname_pdt.xlsx');
-  // }
-
-//   function downloadRekap() {
-
-//     if (opname.length === 0) {
-//         alert('Belum ada data opname.');
-//         return;
-//     }
-
-//     const dataExport = opname.map(item => ({
-//         'Nama Obat': item.nama_obat,
-//         'Qty Sistem': item.qty_sistem,
-//         'Qty Fisik': item.qty_fisik,
-//         'Selisih': item.selisih,
-//         'Keterangan ED': item.keterangan_ed,
-//         'Keterangan Biasa': item.keterangan_biasa,
-//         'Lokasi': item.lokasi
-//     }));
-
-//     const worksheet = XLSX.utils.json_to_sheet(dataExport);
-//     const workbook = XLSX.utils.book_new();
-
-//     XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekap Opname');
-
-//     // Buat file sebagai array
-//     const excelBuffer = XLSX.write(workbook, {
-//         bookType: 'xlsx',
-//         type: 'array'
-//     });
-
-//     const blob = new Blob(
-//         [excelBuffer],
-//         {
-//             type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-//         }
-//     );
-
-//     const url = URL.createObjectURL(blob);
-
-//     const a = document.createElement('a');
-//     a.href = url;
-//     a.download = 'rekap_opname_pdt.xlsx';
-
-//     document.body.appendChild(a);
-//     a.click();
-
-//     setTimeout(() => {
-//         document.body.removeChild(a);
-//         URL.revokeObjectURL(url);
-//     }, 100);
-// }
-
-function downloadRekap() {
-
+  function downloadRekap() {
     if (opname.length === 0) {
-        alert('Belum ada data opname.');
-        return;
+      alert('Belum ada data opname.');
+      return;
     }
 
     const { jsPDF } = window.jspdf;
 
-    const doc = new jsPDF(
-        'landscape',
-        'mm',
-        'a4'
-    );
+    const doc = new jsPDF('landscape', 'mm', 'a4');
 
     doc.setFontSize(16);
     doc.text('REKAP STOCK OPNAME', 14, 15);
 
     doc.setFontSize(10);
-    doc.text(
-        'Tanggal : ' + new Date().toLocaleString('id-ID'),
-        14,
-        22
-    );
+    doc.text('Tanggal: ' + new Date().toLocaleString('id-ID'), 14, 22);
 
     const rows = opname.map((item, index) => [
-        index + 1,
-        item.nama_obat,
-        item.qty_sistem,
-        item.qty_fisik,
-        item.selisih,
-        item.keterangan_ed || '-',
-        item.keterangan_biasa || '-',
-        item.lokasi || '-'
+      index + 1,
+      item.nama_obat,
+      item.qty_sistem,
+      item.qty_fisik,
+      item.selisih,
+      item.keterangan_ed || '-',
+      item.keterangan_biasa || '-',
+      item.lokasi || '-'
     ]);
 
     doc.autoTable({
-        startY: 28,
-        head: [[
-            'No',
-            'Nama Obat',
-            'Qty Sistem',
-            'Qty Fisik',
-            'Selisih',
-            'Ket. ED',
-            'Ket. Biasa',
-            'Lokasi'
-        ]],
-        body: rows,
-        styles: {
-            fontSize: 8
-        },
-        headStyles: {
-            fillColor: [41, 128, 185]
-        }
+      startY: 28,
+      head: [[
+        'No',
+        'Nama Obat',
+        'Qty Sistem',
+        'Qty Fisik',
+        'Selisih',
+        'Ket. ED',
+        'Ket. Biasa',
+        'Lokasi'
+      ]],
+      body: rows,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2
+      },
+      headStyles: {
+        fillColor: [37, 99, 235]
+      }
     });
 
-    doc.save(
-        'rekap_opname_' +
-        new Date().getTime() +
-        '.pdf'
-    );
-}
+    doc.save('rekap_opname_' + new Date().getTime() + '.pdf');
+  }
 
   function hapusSemua() {
     if (!confirm('Yakin hapus semua data inventory dan opname?')) return;
